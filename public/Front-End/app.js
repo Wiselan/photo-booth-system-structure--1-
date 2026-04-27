@@ -10,11 +10,38 @@ const CONFIG = {
   PHOTO_COUNT: 4,
   COUNTDOWN_SEC: 3,
   DELAY_BETWEEN: 1500,      // ms antar foto
-  BACKEND_URL: ' http://localhost:3000', // ganti dengan URL backend kamu
-  STRIP_WIDTH: 250,
-  STRIP_PHOTO_HEIGHT: 450,
+  BACKEND_URL: 'http://localhost:3000',// ganti dengan URL backend kamu
+  STRIP_WIDTH: 400,
+  STRIP_PHOTO_HEIGHT: 300,
   STRIP_PADDING: 0,
   STRIP_GAP: 0,
+};
+
+const FRAME_SLOTS = {
+  'retro-pop': [
+    { x: 241, y: 225, w: 293, h: 211 },
+    { x: 241, y: 478, w: 286, h: 212 },
+    { x: 241, y: 735, w: 286, h: 215 },
+    { x: 238, y: 996, w: 283, h: 215 },
+  ],
+  'pastel': [
+    { x: 234, y: 159, w: 300, h: 238 },
+    { x: 234, y: 439, w: 296, h: 241 },
+    { x: 234, y: 726, w: 300, h: 237 },
+    { x: 231, y: 1009, w: 306, h: 241 },
+  ],
+  'vintage': [
+    { x: 238, y: 143, w: 286, h: 248 },
+    { x: 234, y: 433, w: 293, h: 244 },
+    { x: 234, y: 726, w: 290, h: 241 },
+    { x: 234, y: 1022, w: 293, h: 244 },
+  ],
+  'monochrome': [
+    { x: 238, y: 143, w: 286, h: 248 },
+    { x: 234, y: 433, w: 293, h: 244 },
+    { x: 234, y: 726, w: 290, h: 241 },
+    { x: 234, y: 1022, w: 293, h: 244 },
+  ],
 };
 
 // ── State Global ─────────────────────────────────
@@ -380,15 +407,19 @@ function goToResult() {
 // ════════════════════════════════════════════════
 
 async function buildStrip(frameName) {
-  const PAD = CONFIG.STRIP_PADDING;
-  const GAP = CONFIG.STRIP_GAP;
-  const W   = CONFIG.STRIP_WIDTH;
-  const PH  = CONFIG.STRIP_PHOTO_HEIGHT; // tinggi per foto
+  // 1. Load frame dulu untuk dapat dimensi aslinya
+  let frameImg = null;
+  try {
+    frameImg = await loadImage(`/public/frames/${frameName}.png`);
+  } catch(e) {
+    console.warn('Frame tidak ditemukan:', e);
+  }
 
-  // Total tinggi canvas
-  // W = lebar strip
-  // Tinggi = PAD atas + (4 foto * PH) + (3 gap) + PAD bawah
-  const TOTAL_H = PAD + (CONFIG.PHOTO_COUNT * PH) + ((CONFIG.PHOTO_COUNT - 1) * GAP) + PAD;
+  // Gunakan dimensi frame asli sebagai ukuran canvas
+  const W = frameImg ? frameImg.width : CONFIG.STRIP_WIDTH;
+  const TOTAL_H = frameImg ? frameImg.height : 
+    (CONFIG.STRIP_PADDING * 2 + CONFIG.PHOTO_COUNT * CONFIG.STRIP_PHOTO_HEIGHT + 
+     (CONFIG.PHOTO_COUNT - 1) * CONFIG.STRIP_GAP);
 
   const offscreen = document.createElement('canvas');
   offscreen.width  = W;
@@ -399,50 +430,51 @@ async function buildStrip(frameName) {
   ctx.fillStyle = '#FFFFFF';
   ctx.fillRect(0, 0, W, TOTAL_H);
 
-  // Gambar 4 foto (di bawah frame overlay)
- const photoPositions = [
-  180,
-  540,
-  900,
-  1260
-];
+  // 2. Gambar frame DULU sebagai background
+  if (frameImg) {
+    ctx.drawImage(frameImg, 0, 0, W, TOTAL_H);
+  }
 
-for (let i = 0; i < CONFIG.PHOTO_COUNT; i++) {
-  if (!photos[i]) continue;
+  // 3. Tentukan area foto dari frame
+  // ⚠️ SESUAIKAN koordinat ini dengan posisi lubang foto di frame PNG kamu!
+ const photoSlots = FRAME_SLOTS[frameName] || FRAME_SLOTS['retro-pop'];
 
-  const y = photoPositions[i];
-  const photoImg = await loadImage(photos[i]);
+  // 4. Gambar foto di dalam slot dengan clipping
+  for (let i = 0; i < CONFIG.PHOTO_COUNT; i++) {
+    if (!photos[i]) continue;
 
-    // Crop foto ke area kotak (object-fit: cover)
+    const slot = photoSlots[i];
+    const photoImg = await loadImage(photos[i]);
+
+    ctx.save();
+    
+    // Clip ke area slot agar foto tidak keluar
+    ctx.beginPath();
+    ctx.rect(slot.x, slot.y, slot.w, slot.h);
+    ctx.clip();
+
+    // Hitung crop agar foto mengisi slot (object-fit: cover)
     const srcAspect = photoImg.width / photoImg.height;
-    const dstAspect = W / PH;
+    const dstAspect = slot.w / slot.h;
 
     let sx = 0, sy = 0, sw = photoImg.width, sh = photoImg.height;
 
     if (srcAspect > dstAspect) {
-      // Foto lebih lebar → crop kiri-kanan
       sw = photoImg.height * dstAspect;
       sx = (photoImg.width - sw) / 2;
     } else {
-      // Foto lebih tinggi → crop atas-bawah
       sh = photoImg.width / dstAspect;
       sy = (photoImg.height - sh) / 2;
     }
 
-    ctx.drawImage(photoImg, sx, sy, sw, sh, 0, y, W, PH);
+    ctx.drawImage(photoImg, sx, sy, sw, sh, slot.x, slot.y, slot.w, slot.h);
+    
+    ctx.restore();
   }
 
-  // Overlay frame PNG di atas foto
-  try {
-    const frameSrc = `/frames/${frameName}.png`;
-    const frameImg = await loadImage(frameSrc);
-    console.log("Canvas:", W, TOTAL_H);
-    console.log("Frame:", frameImg.width, frameImg.height);
-    ctx.drawImage(frameImg,0,0,frameImg.width,frameImg.height,0,0,W,TOTAL_H);
-  } catch (e) {
-    console.warn('Frame image not found, skip overlay:', e);
-    // Gambar frame sederhana sebagai fallback
-    drawFallbackFrame(ctx, W, TOTAL_H, frameName);
+  // 5. Gambar frame LAGI di atas foto (agar border frame menutupi tepi foto)
+  if (frameImg) {
+    ctx.drawImage(frameImg, 0, 0, W, TOTAL_H);
   }
 
   return offscreen.toDataURL('image/png', 1.0);
