@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PopSnap! — Pilih Frame 🖼️</title>
+  <link rel="stylesheet" href="style.css"/>
+  <style>
+    .frame-page { padding: 24px 0 60px; }
+
+    .frame-layout {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 28px;
+      align-items: start;
+    }
+
+    @media (max-width: 720px) {
+      .frame-layout { grid-template-columns: 1fr; }
+      .preview-col { order: -1; }
+    }
+
+    /* Frame selector */
+    .frame-selector-col {}
+
+    .frame-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+    }
+
+    .frame-option {
+      position: relative;
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+      aspect-ratio: 1/3;
+      background: var(--cream-dark);
+    }
+
+    .frame-option:hover {
+      transform: translateY(-4px) scale(1.02);
+      border-color: var(--pink-light);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .frame-option.selected {
+      border-color: var(--pink-deep);
+      box-shadow: 0 8px 24px rgba(255,133,161,0.45);
+      transform: translateY(-4px) scale(1.04);
+    }
+
+    .frame-option img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .frame-option .frame-check {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 28px; height: 28px;
+      background: var(--pink-deep);
+      border-radius: 50%;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--white);
+      font-size: 1rem;
+      z-index: 2;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .frame-option.selected .frame-check { display: flex; }
+
+    .frame-name {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      padding: 18px 8px 8px;
+      background: linear-gradient(transparent, rgba(92,61,46,0.75));
+      color: var(--white);
+      font-size: 0.78rem;
+      font-weight: 800;
+      text-align: center;
+      text-transform: capitalize;
+    }
+
+    /* Preview column */
+    .preview-col {}
+
+    .preview-card {
+      background: var(--white);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      border: 2px solid rgba(255,181,200,0.25);
+      box-shadow: var(--shadow-card);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .preview-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--pink), var(--lilac), var(--mint), var(--yellow));
+      background-size: 200% auto;
+      animation: shimmer 3s linear infinite;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: 0% center; }
+      100% { background-position: 200% center; }
+    }
+
+    .preview-label {
+      text-align: center;
+      font-size: 0.8rem;
+      font-weight: 800;
+      color: var(--text-mid);
+      margin-bottom: 12px;
+    }
+
+    #previewCanvas {
+      width: 100%;
+      border-radius: var(--radius-md);
+      box-shadow: 0 4px 20px rgba(180,120,140,0.2);
+      display: block;
+    }
+
+    .preview-empty {
+      aspect-ratio: 1/3;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      background: var(--cream-dark);
+      border-radius: var(--radius-md);
+      color: var(--text-light);
+      font-size: 0.85rem;
+      font-weight: 700;
+    }
+
+    .preview-empty .empty-icon { font-size: 2.5rem; opacity: 0.5; }
+
+    /* Action area */
+    .action-area {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .selected-frame-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      background: var(--pink-light);
+      border-radius: var(--radius-md);
+      border: 2px solid var(--pink);
+      font-size: 0.85rem;
+      font-weight: 800;
+      color: var(--pink-deep);
+    }
+
+    .selected-frame-info.hidden { display: none; }
+
+    /* Loading overlay on canvas */
+    .canvas-loading {
+      position: relative;
+    }
+
+    .canvas-loading-spinner {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(255,248,240,0.8);
+      border-radius: var(--radius-md);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .canvas-wrap {
+      position: relative;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sprinkle-bg" aria-hidden="true">
+    <span class="star" style="top:8%;left:5%;animation-duration:4s;">⭐</span>
+    <span class="star" style="top:20%;right:8%;animation-duration:3.5s;animation-delay:0.5s;">✦</span>
+    <span class="star" style="bottom:15%;left:8%;animation-duration:4.2s;animation-delay:1.2s;">⭐</span>
+  </div>
+
+  <div class="page-wrapper">
+
+    <!-- NAVBAR -->
+    <nav class="navbar container">
+      <a href="index.html" class="navbar-brand">
+        <span class="brand-icon">📷</span>
+        <span class="brand-text">PopSnap!</span>
+      </a>
+      <span class="badge badge-pink">✨ Beta</span>
+    </nav>
+
+    <!-- STEP INDICATOR -->
+    <div class="step-indicator container">
+      <div class="step done">
+        <div class="step-dot">✓</div>
+        <div class="step-label">Foto</div>
+      </div>
+      <div class="step-line done"></div>
+      <div class="step active">
+        <div class="step-dot">2</div>
+        <div class="step-label">Frame</div>
+      </div>
+      <div class="step-line"></div>
+      <div class="step">
+        <div class="step-dot">3</div>
+        <div class="step-label">Bayar</div>
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <main class="frame-page container">
+
+      <div style="text-align:center;margin-bottom:28px;">
+        <span class="badge badge-lilac" style="margin-bottom:12px;">🖼️ Langkah 2 dari 3</span>
+        <h2>Pilih <span class="text-gradient">Frame Favoritmu</span>!</h2>
+        <p style="margin-top:8px;">Klik frame yang kamu suka, preview akan langsung muncul ✨</p>
+      </div>
+
+      <div class="frame-layout">
+
+        <!-- KIRI: Frame selector -->
+        <div class="frame-selector-col">
+          <div style="margin-bottom:16px;">
+            <span class="badge badge-cream">🎨 4 Pilihan Frame</span>
+          </div>
+
+          <div class="frame-grid" id="frameGrid">
+            <div class="frame-option" data-frame="retro-pop" onclick="selectFrame(this)">
+              <img src="../frames/retro-pop.png" alt="Retro Pop"
+                   onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#FFE4E4,#FFB5C8)'"/>
+              <div class="frame-check">✓</div>
+              <div class="frame-name">Retro Pop</div>
+            </div>
+            <div class="frame-option" data-frame="pastel" onclick="selectFrame(this)">
+              <img src="../frames/pastel.png" alt="Pastel"
+                   onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#FFF0DC,#FFD0A8)'"/>
+              <div class="frame-check">✓</div>
+              <div class="frame-name">Pastel</div>
+            </div>
+            <div class="frame-option" data-frame="vintage" onclick="selectFrame(this)">
+              <img src="../frames/vintage.png" alt="Vintage"
+                   onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#F5F0FF,#D4B8F0)'"/>
+              <div class="frame-check">✓</div>
+              <div class="frame-name">Vintage</div>
+            </div>
+            <div class="frame-option" data-frame="monochrome" onclick="selectFrame(this)">
+              <img src="../frames/monochrome.png" alt="Monochrome"
+                   onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#E8E8E8,#A8A8A8)'"/>
+              <div class="frame-check">✓</div>
+              <div class="frame-name">Monochrome</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KANAN: Preview + Action -->
+        <div class="preview-col">
+          <div class="preview-card">
+            <div class="preview-label">👁️ Preview Strip</div>
+            <div class="canvas-wrap">
+              <div id="previewEmpty" class="preview-empty">
+                <span class="empty-icon">🖼️</span>
+                <span>Pilih frame dulu yuk!</span>
+              </div>
+              <canvas id="previewCanvas" style="display:none;"></canvas>
+              <div class="canvas-loading-spinner" id="canvasSpinner">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-area">
+            <div class="selected-frame-info hidden" id="frameInfo">
+              <span>🎨</span>
+              <span id="frameInfoText">Frame dipilih!</span>
+            </div>
+
+            <button class="btn btn-primary btn-block btn-lg" id="btnLanjut"
+                    onclick="goToResult()" disabled>
+              💳 Lanjut ke Pembayaran
+            </button>
+
+            <a href="camera.html" class="btn btn-outline btn-block btn-sm">
+              ← Ulang Foto
+            </a>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      Made with <span>♥</span> — PopSnap! &copy; 2025
+    </footer>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      initFramePage();
+    });
+  </script>
+</body>
+</html>
