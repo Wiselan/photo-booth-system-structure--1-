@@ -223,3 +223,10 @@ router.get('/health', (req, res) => {
 });
 
 module.exports = router;
+router.get('/debug-keys', (req, res) => {
+  res.json({
+    midtrans_server: process.env.MIDTRANS_SERVER_KEY?.substring(0, 20) + '...',
+    midtrans_client: process.env.MIDTRANS_CLIENT_KEY?.substring(0, 20) + '...',
+    gmail: process.env.GMAIL_USER
+  });
+});
