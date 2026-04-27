@@ -18,12 +18,13 @@ const PORT = process.env.PORT || 3000;
 // ── Middleware ───────────────────────────────────
 app.use(cors({
   origin: [
-    'https://Wiselan.github.io',
+    'https://wiselan.github.io',
     'http://localhost:5500',
     'http://127.0.0.1:5500',
   ],
   methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 }));
 
 // Parse JSON — limit 50mb untuk base64 image
