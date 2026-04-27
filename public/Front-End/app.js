@@ -10,7 +10,7 @@ const CONFIG = {
   PHOTO_COUNT: 4,
   COUNTDOWN_SEC: 3,
   DELAY_BETWEEN: 1500,      // ms antar foto
-  BACKEND_URL: 'http://localhost:3000',// ganti dengan URL backend kamu
+  BACKEND_URL: 'https://photo-booth-system-structure-1-production.up.railway.app',// ganti dengan URL backend kamu
   STRIP_WIDTH: 400,
   STRIP_PHOTO_HEIGHT: 300,
   STRIP_PADDING: 0,
@@ -410,7 +410,7 @@ async function buildStrip(frameName) {
   // 1. Load frame dulu untuk dapat dimensi aslinya
   let frameImg = null;
   try {
-    frameImg = await loadImage(`/public/frames/${frameName}.png`);
+    frameImg = await loadImage(`../frames/${frameName}.png`);
   } catch(e) {
     console.warn('Frame tidak ditemukan:', e);
   }
