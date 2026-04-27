@@ -9,8 +9,8 @@
 const CONFIG = {
   PHOTO_COUNT: 4,
   COUNTDOWN_SEC: 3,
-  DELAY_BETWEEN: 1500,      // ms antar foto
-  BACKEND_URL: 'https://photo-booth-system-structure-1-production.up.railway.app',// ganti dengan URL backend kamu
+  DELAY_BETWEEN: 1500,
+  BACKEND_URL: 'https://photo-booth-system-structure-1-production.up.railway.app', // ← update ini
   STRIP_WIDTH: 400,
   STRIP_PHOTO_HEIGHT: 300,
   STRIP_PADDING: 0,
